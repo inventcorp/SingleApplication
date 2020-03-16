@@ -24,8 +24,8 @@
 #ifndef SINGLE_APPLICATION_H
 #define SINGLE_APPLICATION_H
 
-#include <QtCore/QtGlobal>
-#include <QtNetwork/QLocalSocket>
+#include <QtGlobal>
+#include <QLocalSocket>
 
 #ifndef QAPPLICATION_CLASS
   #define QAPPLICATION_CLASS QCoreApplication

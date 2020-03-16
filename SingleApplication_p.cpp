@@ -33,15 +33,15 @@
 #include <cstdlib>
 #include <cstddef>
 
-#include <QtCore/QDir>
-#include <QtCore/QByteArray>
-#include <QtCore/QDataStream>
-#include <QtCore/QCryptographicHash>
-#include <QtNetwork/QLocalServer>
-#include <QtNetwork/QLocalSocket>
+#include <QDir>
+#include <QByteArray>
+#include <QDataStream>
+#include <QCryptographicHash>
+#include <QLocalServer>
+#include <QLocalSocket>
 
-#include "singleapplication.h"
-#include "singleapplication_p.h"
+#include "SingleApplication.h"
+#include "SingleApplication_p.h"
 
 #ifdef Q_OS_UNIX
     #include <unistd.h>
@@ -50,7 +50,7 @@
 #endif
 
 #ifdef Q_OS_WIN
-    #include <windows.h>
+    #include <Windows.h>
     #include <lmcons.h>
 #endif
 

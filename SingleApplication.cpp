@@ -21,18 +21,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#include <QtCore/QElapsedTimer>
-#include <QtCore/QThread>
-#include <QtCore/QByteArray>
-#include <QtCore/QSharedMemory>
+#include <QElapsedTimer>
+#include <QThread>
+#include <QByteArray>
+#include <QSharedMemory>
+
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-#include <QtCore/QRandomGenerator>
+#include <QRandomGenerator>
 #else
-#include <QtCore/QDateTime>
+#include <QDateTime>
 #endif
 
-#include "singleapplication.h"
-#include "singleapplication_p.h"
+#include "SingleApplication.h"
+#include "SingleApplication_p.h"
 
 /**
  * @brief Constructor. Checks and fires up LocalServer or closes the program

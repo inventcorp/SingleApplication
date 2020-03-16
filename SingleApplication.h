@@ -36,8 +36,7 @@
 class SingleApplicationPrivate;
 
 /**
- * @brief The SingleApplication class handles multiple instances of the same
- * Application
+ * @brief The SingleApplication class handles multiple instances of the same Application
  * @see QCoreApplication
  */
 class SingleApplication : public QAPPLICATION_CLASS
@@ -50,8 +49,7 @@ public:
     /**
      * @brief Mode of operation of SingleApplication.
      * Whether the block should be user-wide or system-wide and whether the
-     * primary instance should be notified when a secondary instance had been
-     * started.
+     * primary instance should be notified when a secondary instance had been started.
      * @note Operating system can restrict the shared memory blocks to the same
      * user, in which case the User/System modes will have no effect and the
      * block will be user wide.
@@ -68,7 +66,9 @@ public:
 
     /**
      * @brief Intitializes a SingleApplication instance with argc command line
-     * arguments in argv
+     * arguments in argv.
+     * Checks and fires up LocalServer or closes the program
+     * if another instance already exists.
      * @arg {int &} argc - Number of arguments in argv
      * @arg {const char *[]} argv - Supplied command line arguments
      * @arg {bool} allowSecondary - Whether to start the instance as secondary
@@ -123,8 +123,7 @@ public:
      * @brief Sends a message to the primary instance. Returns true on success.
      * @param {int} timeout - Timeout for connecting
      * @returns {bool}
-     * @note sendMessage() will return false if invoked from the primary
-     * instance.
+     * @note sendMessage() will return false if invoked from the primary instance.
      */
     bool sendMessage( QByteArray message, int timeout = 100 );
 

@@ -35,13 +35,6 @@
 #include "SingleApplication.h"
 #include "SingleApplication_p.h"
 
-/**
- * @brief Constructor. Checks and fires up LocalServer or closes the program
- * if another instance already exists
- * @param argc
- * @param argv
- * @param {bool} allowSecondaryInstances
- */
 SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSecondary, Options options, int timeout )
     : app_t( argc, argv ), d_ptr( new SingleApplicationPrivate( this ) )
 {

@@ -83,9 +83,7 @@ public:
         ConnectionStage m_stage = ConnectionStage::Header;
     };
 
-    Q_DECLARE_PUBLIC(SingleApplication)
-
-    explicit SingleApplicationPrivate(SingleApplication *parent);
+    explicit SingleApplicationPrivate(QObject *parent);
     ~SingleApplicationPrivate() override;
 
     QByteArray getUsername();
@@ -100,7 +98,6 @@ public:
     void readInitMessageHeader(QLocalSocket *socket);
     void readInitMessageBody(QLocalSocket *socket);
 
-    SingleApplication * const q_ptr;
     QSharedMemory *m_memory = nullptr;
     QLocalSocket *m_socket = nullptr;
     QLocalServer *m_server = nullptr;
@@ -114,6 +111,10 @@ public:
 
 public slots:
     void onConnectionEstablished();
+
+signals:
+    void instanceStarted();
+    void messageReceived(quint32 instanceId, const QByteArray &message);
 };
 
 #endif // SINGLEAPPLICATION_P_H

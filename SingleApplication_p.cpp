@@ -55,8 +55,8 @@
 #include <lmcons.h>
 #endif
 
-SingleApplicationPrivate::SingleApplicationPrivate(SingleApplication *parent)
-    : q_ptr(parent)
+SingleApplicationPrivate::SingleApplicationPrivate(QObject *parent)
+    : QObject(parent)
 {
 }
 
@@ -377,8 +377,6 @@ void SingleApplicationPrivate::readInitMessageHeader(QLocalSocket *socket)
 
 void SingleApplicationPrivate::readInitMessageBody(QLocalSocket *socket)
 {
-    Q_Q(SingleApplication);
-
     if (!m_connectionMap.contains(socket))
     {
         return;
@@ -436,8 +434,7 @@ void SingleApplicationPrivate::readInitMessageBody(QLocalSocket *socket)
             || (connectionType == ConnectionType::SecondaryInstance
                 && m_options.testFlag(SingleApplication::Mode::SecondaryNotification)))
     {
-        //TODO: future: add instanceStarted() signal to SingleApplicationPrivate class
-        emit q->instanceStarted();
+        emit instanceStarted();
     }
 
     if (socket->bytesAvailable() > 0)
@@ -448,10 +445,7 @@ void SingleApplicationPrivate::readInitMessageBody(QLocalSocket *socket)
 
 void SingleApplicationPrivate::onDataAvailable(QLocalSocket *socket, quint32 instanceId)
 {
-    Q_Q(SingleApplication);
-
-    //TODO: future: add messageReceived() signal to SingleApplicationPrivate class
-    emit q->messageReceived(instanceId, socket->readAll());
+    emit messageReceived(instanceId, socket->readAll());
 }
 
 void SingleApplicationPrivate::onClientConnectionClosed(QLocalSocket *socket, quint32 instanceId)

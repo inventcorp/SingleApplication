@@ -52,6 +52,12 @@ SingleApplication::SingleApplication(int &argc,
     return;
 #endif
 
+    connect(d, &SingleApplicationPrivate::instanceStarted,
+            this, &SingleApplication::instanceStarted);
+
+    connect(d, &SingleApplicationPrivate::messageReceived,
+            this, &SingleApplication::messageReceived);
+
     // Store the current mode of the program
     d->m_options = options;
 

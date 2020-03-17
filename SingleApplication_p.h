@@ -39,26 +39,34 @@
 
 #include "SingleApplication.h"
 
-//TODO: future: refactor SingleApplicationPrivate class
-
-struct InstancesInfo
-{
-    explicit InstancesInfo() = default;
-
-    static constexpr int primaryUserSize = 128;
-
-    bool m_primary = false;
-    quint32 m_secondary = 0;
-    qint64 m_primaryPid = -1;
-    quint16 m_checksum = 0;
-    char m_primaryUser[primaryUserSize] = {};
-};
-
+/**
+ * @brief The SingleApplicationPrivate class is the private class for SingleApplication.
+ */
 class SingleApplicationPrivate : public QObject
 {
     Q_OBJECT
 
 public:
+    explicit SingleApplicationPrivate(QObject *parent);
+    ~SingleApplicationPrivate() override;
+
+    bool init(bool allowSecondary,
+              SingleApplication::Options options,
+              std::chrono::milliseconds timeout);
+
+    bool isPrimary() const;
+    bool isSecondary() const;
+    quint32 instanceId() const;
+    qint64 primaryPid();
+    QString primaryUser();
+
+    bool sendMessage(const QByteArray &message, std::chrono::milliseconds timeout);
+
+signals:
+    void instanceStarted();
+    void messageReceived(quint32 instanceId, const QByteArray &message);
+
+private:
     enum class ConnectionType : quint8
     {
         InvalidConnection = 0,
@@ -74,6 +82,19 @@ public:
         Connected = 2,
     };
 
+    struct InstancesInfo
+    {
+        explicit InstancesInfo() = default;
+
+        static constexpr int primaryUserSize = 128;
+
+        bool m_primary = false;
+        quint32 m_secondary = 0;
+        qint64 m_primaryPid = -1;
+        quint16 m_checksum = 0;
+        char m_primaryUser[primaryUserSize] = {};
+    };
+
     struct ConnectionInfo
     {
         explicit ConnectionInfo() = default;
@@ -83,21 +104,6 @@ public:
         ConnectionStage m_stage = ConnectionStage::Header;
     };
 
-    explicit SingleApplicationPrivate(QObject *parent);
-    ~SingleApplicationPrivate() override;
-
-    QByteArray getUsername();
-    void generateBlockServerName();
-    void initializeMemoryBlock();
-    void startPrimary();
-    void startSecondary();
-    void connectToPrimary(std::chrono::milliseconds timeout, ConnectionType connectionType);
-    quint16 blockChecksum();
-    qint64 primaryPid();
-    QString primaryUser();
-    void readInitMessageHeader(QLocalSocket *socket);
-    void readInitMessageBody(QLocalSocket *socket);
-
     QSharedMemory *m_memory = nullptr;
     QLocalSocket *m_socket = nullptr;
     QLocalServer *m_server = nullptr;
@@ -106,15 +112,23 @@ public:
     SingleApplication::Options m_options = {};
     QMap<QLocalSocket*, ConnectionInfo> m_connectionMap;
 
+    QByteArray getUsername();
+    void generateBlockServerName();
+    void initializeMemoryBlock();
+
+    void startPrimary();
+    void startSecondary();
+    void connectToPrimary(std::chrono::milliseconds timeout, ConnectionType connectionType);
+    quint16 blockChecksum();
+
+    void readInitMessageHeader(QLocalSocket *socket);
+    void readInitMessageBody(QLocalSocket *socket);
+
     void onDataAvailable(QLocalSocket *socket, quint32 instanceId);
     void onClientConnectionClosed(QLocalSocket *socket, quint32 instanceId);
 
-public slots:
+private slots:
     void onConnectionEstablished();
-
-signals:
-    void instanceStarted();
-    void messageReceived(quint32 instanceId, const QByteArray &message);
 };
 
 #endif // SINGLEAPPLICATION_P_H

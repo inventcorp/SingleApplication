@@ -40,6 +40,14 @@
 #include <QCryptographicHash>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QElapsedTimer>
+#include <QThread>
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+#include <QRandomGenerator>
+#else
+#include <QDateTime>
+#endif
 
 #include "SingleApplication.h"
 #include "SingleApplication_p.h"
@@ -85,6 +93,172 @@ SingleApplicationPrivate::~SingleApplicationPrivate()
     m_memory->unlock();
 
     delete m_memory;
+}
+
+bool SingleApplicationPrivate::init(bool allowSecondary,
+                                    SingleApplication::Options options,
+                                    std::chrono::milliseconds timeout)
+{
+    // Store the current mode of the program
+    m_options = options;
+
+    // Generating an application ID used for identifying the shared memory
+    // block and QLocalServer
+    generateBlockServerName();
+
+#ifdef Q_OS_UNIX
+    // By explicitly attaching it and then deleting it we make sure that the
+    // memory is deleted even after the process has crashed on Unix.
+    memory = new QSharedMemory(blockServerName);
+    memory->attach();
+    delete memory;
+#endif
+
+    // Guarantee thread safe behaviour with a shared memory block
+    m_memory = new QSharedMemory(m_blockServerName);
+
+    // Create a shared memory block
+    if(m_memory->create(sizeof(InstancesInfo)))
+    {
+        // Initialize the shared memory block
+        m_memory->lock();
+        initializeMemoryBlock();
+        m_memory->unlock();
+    }
+    else
+    {
+        // Attempt to attach to the memory segment
+        if(!m_memory->attach())
+        {
+            qCritical() << "SingleApplication: Unable to attach to shared memory block."
+                        << m_memory->errorString();
+
+            return false;
+        }
+    }
+
+    InstancesInfo *instanceInfo = static_cast<InstancesInfo*>(m_memory->data());
+    QElapsedTimer timer;
+    timer.start();
+
+    // Make sure the shared memory block is initialised and in consistent state
+    while (true)
+    {
+        m_memory->lock();
+
+        if (blockChecksum() == instanceInfo->m_checksum)
+        {
+            break;
+        }
+
+        if (timer.elapsed() > 5000)
+        {
+            qWarning() << "SingleApplication: Shared memory block has been in an inconsistent state from more than 5s. Assuming primary instance failure.";
+            initializeMemoryBlock();
+        }
+
+        m_memory->unlock();
+
+        // Random sleep here limits the probability of a collision between two racing apps
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+        QThread::sleep(QRandomGenerator::global()->bounded(8u, 18u));
+#else
+        qsrand(QDateTime::currentMSecsSinceEpoch() % std::numeric_limits<uint>::max());
+        QThread::sleep(8 + static_cast<unsigned long>(static_cast<float>(qrand()) / RAND_MAX * 10));
+#endif
+    }
+
+    if (!instanceInfo->m_primary)
+    {
+        startPrimary();
+        m_memory->unlock();
+
+        return true;
+    }
+
+    // Check if another instance can be started
+    if (allowSecondary)
+    {
+        instanceInfo->m_secondary += 1;
+        instanceInfo->m_checksum = blockChecksum();
+        m_instanceNumber = instanceInfo->m_secondary;
+        startSecondary();
+
+        if (m_options.testFlag(SingleApplication::Mode::SecondaryNotification))
+        {
+            connectToPrimary(timeout, ConnectionType::SecondaryInstance);
+        }
+
+        m_memory->unlock();
+        return true;
+    }
+
+    m_memory->unlock();
+
+    connectToPrimary(timeout, ConnectionType::NewInstance);
+
+    return false;
+}
+
+bool SingleApplicationPrivate::isPrimary() const
+{
+    return m_server != nullptr;
+}
+
+bool SingleApplicationPrivate::isSecondary() const
+{
+    return m_server == nullptr;
+}
+
+quint32 SingleApplicationPrivate::instanceId() const
+{
+    return m_instanceNumber;
+}
+
+qint64 SingleApplicationPrivate::primaryPid()
+{
+    m_memory->lock();
+
+    InstancesInfo *instanceInfo = static_cast<InstancesInfo*>(m_memory->data());
+    const qint64 pid = instanceInfo->m_primaryPid;
+
+    m_memory->unlock();
+
+    return pid;
+}
+
+QString SingleApplicationPrivate::primaryUser()
+{
+    m_memory->lock();
+
+    InstancesInfo *instanceInfo = static_cast<InstancesInfo*>(m_memory->data());
+    const QByteArray username = instanceInfo->m_primaryUser;
+
+    m_memory->unlock();
+
+    return QString::fromUtf8(username);
+}
+
+bool SingleApplicationPrivate::sendMessage(const QByteArray &message,
+                                           std::chrono::milliseconds timeout)
+{
+    // Nobody to connect to
+    if (isPrimary())
+    {
+        return false;
+    }
+
+    // Make sure the socket is connected
+    connectToPrimary(timeout, ConnectionType::Reconnect);
+
+    m_socket->write(message);
+
+    //TODO: future: QAbstractSocket::waitForBytesWritten() method may fail randomly on Windows
+    const bool dataWritten = m_socket->waitForBytesWritten(timeout.count());
+
+    m_socket->flush();
+
+    return dataWritten;
 }
 
 QByteArray SingleApplicationPrivate::getUsername()
@@ -277,30 +451,6 @@ quint16 SingleApplicationPrivate::blockChecksum()
 {
     return qChecksum(static_cast<const char*>(m_memory->data()),
                      offsetof(InstancesInfo, m_checksum));
-}
-
-qint64 SingleApplicationPrivate::primaryPid()
-{
-    m_memory->lock();
-
-    InstancesInfo *instanceInfo = static_cast<InstancesInfo*>(m_memory->data());
-    const qint64 pid = instanceInfo->m_primaryPid;
-
-    m_memory->unlock();
-
-    return pid;
-}
-
-QString SingleApplicationPrivate::primaryUser()
-{
-    m_memory->lock();
-
-    InstancesInfo *instanceInfo = static_cast<InstancesInfo*>(m_memory->data());
-    const QByteArray username = instanceInfo->m_primaryUser;
-
-    m_memory->unlock();
-
-    return QString::fromUtf8(username);
 }
 
 void SingleApplicationPrivate::onConnectionEstablished()

@@ -25,7 +25,6 @@
 #define SINGLE_APPLICATION_H
 
 #include <QtGlobal>
-#include <QLocalSocket>
 
 #ifndef QAPPLICATION_CLASS
 #define QAPPLICATION_CLASS QCoreApplication
@@ -60,6 +59,7 @@ public:
         ExcludeAppVersion = (1 << 3),
         ExcludeAppPath = (1 << 4)
     };
+
     Q_DECLARE_FLAGS(Options, Mode)
 
     /**

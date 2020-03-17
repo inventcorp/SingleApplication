@@ -90,8 +90,6 @@ public:
                                Options options = Mode::User,
                                std::chrono::milliseconds timeout = m_defaultTimeout);
 
-    ~SingleApplication() override;
-
     /**
      * @brief Returns if the instance is the primary instance
      * @returns {bool}

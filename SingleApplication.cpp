@@ -163,13 +163,6 @@ SingleApplication::SingleApplication(int &argc,
     ::exit(EXIT_SUCCESS);
 }
 
-SingleApplication::~SingleApplication()
-{
-    Q_D(SingleApplication);
-
-    delete d;
-}
-
 bool SingleApplication::isPrimary() const
 {
     Q_D(const SingleApplication);

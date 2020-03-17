@@ -167,8 +167,6 @@ void SingleApplicationPrivate::initializeMemoryBlock()
 
 void SingleApplicationPrivate::startPrimary()
 {
-    Q_Q(SingleApplication);
-
     // Successful creation means that no main process exists
     // So we start a QLocalServer to listen for connections
     QLocalServer::removeServer(m_blockServerName);
@@ -194,7 +192,7 @@ void SingleApplicationPrivate::startPrimary()
     InstancesInfo *instanceInfo = static_cast<InstancesInfo*>(m_memory->data());
 
     instanceInfo->m_primary = true;
-    instanceInfo->m_primaryPid = q->applicationPid();
+    instanceInfo->m_primaryPid = SingleApplication::Application::applicationPid();
 
     const QByteArray username = getUsername();
     const int usernameSize = qMin(username.size(), InstancesInfo::primaryUserSize - 1);

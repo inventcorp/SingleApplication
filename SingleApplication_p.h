@@ -47,11 +47,11 @@ struct InstancesInfo
 
     static constexpr int primaryUserSize = 128;
 
-    bool primary = false;
-    quint32 secondary = 0;
-    qint64 primaryPid = -1;
-    quint16 checksum = 0;
-    char primaryUser[primaryUserSize] = {};
+    bool m_primary = false;
+    quint32 m_secondary = 0;
+    qint64 m_primaryPid = -1;
+    quint16 m_checksum = 0;
+    char m_primaryUser[primaryUserSize] = {};
 };
 
 class SingleApplicationPrivate : public QObject
@@ -78,9 +78,9 @@ public:
     {
         explicit ConnectionInfo() = default;
 
-        qint64 messageLength = 0;
-        quint32 instanceId = 0;
-        ConnectionStage stage = ConnectionStage::Header;
+        qint64 m_messageLength = 0;
+        quint32 m_instanceId = 0;
+        ConnectionStage m_stage = ConnectionStage::Header;
     };
 
     Q_DECLARE_PUBLIC(SingleApplication)
@@ -101,13 +101,13 @@ public:
     void readInitMessageBody(QLocalSocket *socket);
 
     SingleApplication * const q_ptr;
-    QSharedMemory *memory = nullptr;
-    QLocalSocket *socket = nullptr;
-    QLocalServer *server = nullptr;
-    quint32 instanceNumber = -1;
-    QString blockServerName;
-    SingleApplication::Options options = {};
-    QMap<QLocalSocket*, ConnectionInfo> connectionMap;
+    QSharedMemory *m_memory = nullptr;
+    QLocalSocket *m_socket = nullptr;
+    QLocalServer *m_server = nullptr;
+    quint32 m_instanceNumber = -1;
+    QString m_blockServerName;
+    SingleApplication::Options m_options = {};
+    QMap<QLocalSocket*, ConnectionInfo> m_connectionMap;
 
     void onDataAvailable(QLocalSocket *socket, quint32 instanceId);
     void onClientConnectionClosed(QLocalSocket *socket, quint32 instanceId);

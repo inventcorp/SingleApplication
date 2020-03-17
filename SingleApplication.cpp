@@ -35,15 +35,20 @@
 #include "SingleApplication.h"
 #include "SingleApplication_p.h"
 
-SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSecondary, Options options, int timeout )
-    : app_t( argc, argv ), d_ptr( new SingleApplicationPrivate( this ) )
+SingleApplication::SingleApplication(int &argc,
+                                     char *argv[],
+                                     bool allowSecondary,
+                                     Options options,
+                                     std::chrono::milliseconds timeout)
+    : Application(argc, argv),
+      d_ptr(new SingleApplicationPrivate(this))
 {
     Q_D(SingleApplication);
 
 #if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
     // On Android and iOS since the library is not supported fallback to
     // standard QApplication behaviour by simply returning at this point.
-    qWarning() << "SingleApplication is not supported on Android and iOS systems.";
+    qWarning() << "SingleApplication is not supported on Android and iOS systems";
     return;
 #endif
 
@@ -52,45 +57,56 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
 
     // Generating an application ID used for identifying the shared memory
     // block and QLocalServer
-    d->genBlockServerName();
+    d->generateBlockServerName();
 
 #ifdef Q_OS_UNIX
     // By explicitly attaching it and then deleting it we make sure that the
     // memory is deleted even after the process has crashed on Unix.
-    d->memory = new QSharedMemory( d->blockServerName );
+    d->memory = new QSharedMemory(d->blockServerName);
     d->memory->attach();
     delete d->memory;
 #endif
-    // Guarantee thread safe behaviour with a shared memory block.
-    d->memory = new QSharedMemory( d->blockServerName );
+
+    // Guarantee thread safe behaviour with a shared memory block
+    d->memory = new QSharedMemory(d->blockServerName);
 
     // Create a shared memory block
-    if( d->memory->create( sizeof( InstancesInfo ) ) ) {
+    if(d->memory->create(sizeof(InstancesInfo)))
+    {
         // Initialize the shared memory block
         d->memory->lock();
         d->initializeMemoryBlock();
         d->memory->unlock();
-    } else {
+    }
+    else
+    {
         // Attempt to attach to the memory segment
-        if( ! d->memory->attach() ) {
-            qCritical() << "SingleApplication: Unable to attach to shared memory block.";
-            qCritical() << d->memory->errorString();
+        if(!d->memory->attach())
+        {
+            qCritical() << "SingleApplication: Unable to attach to shared memory block."
+                        << d->memory->errorString();
+
             delete d;
-            ::exit( EXIT_FAILURE );
+            ::exit(EXIT_FAILURE);
         }
     }
 
-    InstancesInfo* inst = static_cast<InstancesInfo*>( d->memory->data() );
-    QElapsedTimer time;
-    time.start();
+    InstancesInfo *instanceInfo = static_cast<InstancesInfo*>(d->memory->data());
+    QElapsedTimer timer;
+    timer.start();
 
     // Make sure the shared memory block is initialised and in consistent state
-    while( true ) {
+    while (true)
+    {
         d->memory->lock();
 
-        if( d->blockChecksum() == inst->checksum ) break;
+        if (d->blockChecksum() == instanceInfo->checksum)
+        {
+            break;
+        }
 
-        if( time.elapsed() > 5000 ) {
+        if (timer.elapsed() > 5000)
+        {
             qWarning() << "SingleApplication: Shared memory block has been in an inconsistent state from more than 5s. Assuming primary instance failure.";
             d->initializeMemoryBlock();
         }
@@ -99,92 +115,109 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
 
         // Random sleep here limits the probability of a collision between two racing apps
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-        QThread::sleep( QRandomGenerator::global()->bounded( 8u, 18u ) );
+        QThread::sleep(QRandomGenerator::global()->bounded(8u, 18u));
 #else
-        qsrand( QDateTime::currentMSecsSinceEpoch() % std::numeric_limits<uint>::max() );
-        QThread::sleep( 8 + static_cast <unsigned long>( static_cast <float>( qrand() ) / RAND_MAX * 10 ) );
+        qsrand(QDateTime::currentMSecsSinceEpoch() % std::numeric_limits<uint>::max());
+        QThread::sleep(8 + static_cast<unsigned long>(static_cast<float>(qrand()) / RAND_MAX * 10));
 #endif
     }
 
-    if( inst->primary == false) {
+    if (!instanceInfo->primary)
+    {
         d->startPrimary();
         d->memory->unlock();
+
         return;
     }
 
     // Check if another instance can be started
-    if( allowSecondary ) {
-        inst->secondary += 1;
-        inst->checksum = d->blockChecksum();
-        d->instanceNumber = inst->secondary;
+    if (allowSecondary)
+    {
+        instanceInfo->secondary += 1;
+        instanceInfo->checksum = d->blockChecksum();
+        d->instanceNumber = instanceInfo->secondary;
         d->startSecondary();
-        if( d->options & Mode::SecondaryNotification ) {
-            d->connectToPrimary( timeout, SingleApplicationPrivate::SecondaryInstance );
+
+        if (d->options.testFlag(Mode::SecondaryNotification))
+        {
+            d->connectToPrimary(timeout,
+                                SingleApplicationPrivate::ConnectionType::SecondaryInstance);
         }
+
         d->memory->unlock();
         return;
     }
 
     d->memory->unlock();
 
-    d->connectToPrimary( timeout, SingleApplicationPrivate::NewInstance );
+    d->connectToPrimary(timeout, SingleApplicationPrivate::ConnectionType::NewInstance);
 
     delete d;
 
-    ::exit( EXIT_SUCCESS );
+    ::exit(EXIT_SUCCESS);
 }
 
-/**
- * @brief Destructor
- */
 SingleApplication::~SingleApplication()
 {
     Q_D(SingleApplication);
+
     delete d;
 }
 
-bool SingleApplication::isPrimary()
+bool SingleApplication::isPrimary() const
 {
-    Q_D(SingleApplication);
+    Q_D(const SingleApplication);
+
     return d->server != nullptr;
 }
 
-bool SingleApplication::isSecondary()
+bool SingleApplication::isSecondary() const
 {
-    Q_D(SingleApplication);
+    Q_D(const SingleApplication);
+
     return d->server == nullptr;
 }
 
-quint32 SingleApplication::instanceId()
+quint32 SingleApplication::instanceId() const
 {
-    Q_D(SingleApplication);
+    Q_D(const SingleApplication);
+
     return d->instanceNumber;
 }
 
 qint64 SingleApplication::primaryPid()
 {
     Q_D(SingleApplication);
+
     return d->primaryPid();
 }
 
 QString SingleApplication::primaryUser()
 {
     Q_D(SingleApplication);
+
     return d->primaryUser();
 }
 
-bool SingleApplication::sendMessage( QByteArray message, int timeout )
+bool SingleApplication::sendMessage(const QByteArray &message, std::chrono::milliseconds timeout)
 {
     Q_D(SingleApplication);
 
     // Nobody to connect to
-    if( isPrimary() ) return false;
+    if (isPrimary())
+    {
+        return false;
+    }
 
     // Make sure the socket is connected
-    d->connectToPrimary( timeout,  SingleApplicationPrivate::Reconnect );
+    d->connectToPrimary(timeout, SingleApplicationPrivate::ConnectionType::Reconnect);
 
-    d->socket->write( message );
-    bool dataWritten = d->socket->waitForBytesWritten( timeout );
+    d->socket->write(message);
+
+    //TODO: future: QAbstractSocket::waitForBytesWritten() method may fail randomly on Windows
+    const bool dataWritten = d->socket->waitForBytesWritten(timeout.count());
+
     d->socket->flush();
+
     return dataWritten;
 }

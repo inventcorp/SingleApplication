@@ -43,8 +43,6 @@ class SingleApplication : public QAPPLICATION_CLASS
 {
     Q_OBJECT
 
-    typedef QAPPLICATION_CLASS app_t;
-
 public:
     /**
      * @brief Mode of operation of SingleApplication.
@@ -55,12 +53,12 @@ public:
      * block will be user wide.
      * @enum
      */
-    enum Mode {
-        User                    = 1 << 0,
-        System                  = 1 << 1,
-        SecondaryNotification   = 1 << 2,
-        ExcludeAppVersion       = 1 << 3,
-        ExcludeAppPath          = 1 << 4
+    enum class Mode {
+        User = (1 << 0),
+        System = (1 << 1),
+        SecondaryNotification = (1 << 2),
+        ExcludeAppVersion = (1 << 3),
+        ExcludeAppPath = (1 << 4)
     };
     Q_DECLARE_FLAGS(Options, Mode)
 
@@ -86,26 +84,31 @@ public:
      * Usually 4*timeout would be the worst case (fail) scenario.
      * @see See the corresponding QAPPLICATION_CLASS constructor for reference
      */
-    explicit SingleApplication( int &argc, char *argv[], bool allowSecondary = false, Options options = Mode::User, int timeout = 1000 );
-    ~SingleApplication();
+    explicit SingleApplication(int &argc,
+                               char *argv[],
+                               bool allowSecondary = false,
+                               Options options = Mode::User,
+                               std::chrono::milliseconds timeout = m_defaultTimeout);
+
+    ~SingleApplication() override;
 
     /**
      * @brief Returns if the instance is the primary instance
      * @returns {bool}
      */
-    bool isPrimary();
+    bool isPrimary() const;
 
     /**
      * @brief Returns if the instance is a secondary instance
      * @returns {bool}
      */
-    bool isSecondary();
+    bool isSecondary() const;
 
     /**
      * @brief Returns a unique identifier for the current instance
      * @returns {qint32}
      */
-    quint32 instanceId();
+    quint32 instanceId() const;
 
     /**
      * @brief Returns the process ID (PID) of the primary instance
@@ -125,14 +128,21 @@ public:
      * @returns {bool}
      * @note sendMessage() will return false if invoked from the primary instance.
      */
-    bool sendMessage( QByteArray message, int timeout = 100 );
+    bool sendMessage(const QByteArray &message,
+                     std::chrono::milliseconds timeout = m_defaultSendTimeout);
 
-Q_SIGNALS:
+signals:
     void instanceStarted();
-    void receivedMessage( quint32 instanceId, QByteArray message );
+    void messageReceived(quint32 instanceId, const QByteArray &message);
 
 private:
-    SingleApplicationPrivate *d_ptr;
+    using Application = QAPPLICATION_CLASS;
+
+    static constexpr std::chrono::milliseconds m_defaultTimeout{1000};
+    static constexpr std::chrono::milliseconds m_defaultSendTimeout{100};
+
+    SingleApplicationPrivate * const d_ptr;
+
     Q_DECLARE_PRIVATE(SingleApplication)
 };
 

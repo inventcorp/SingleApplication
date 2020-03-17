@@ -39,66 +39,81 @@
 
 #include "SingleApplication.h"
 
-struct InstancesInfo {
-    bool primary;
-    quint32 secondary;
-    qint64 primaryPid;
-    quint16 checksum;
-    char primaryUser[128];
+//TODO: future: refactor SingleApplicationPrivate class
+
+struct InstancesInfo
+{
+    explicit InstancesInfo() = default;
+
+    static constexpr int primaryUserSize = 128;
+
+    bool primary = false;
+    quint32 secondary = 0;
+    qint64 primaryPid = -1;
+    quint16 checksum = 0;
+    char primaryUser[primaryUserSize] = {};
 };
 
-struct ConnectionInfo {
-    explicit ConnectionInfo() :
-        msgLen(0), instanceId(0), stage(0) {}
-    qint64 msgLen;
-    quint32 instanceId;
-    quint8 stage;
-};
+class SingleApplicationPrivate : public QObject
+{
+    Q_OBJECT
 
-class SingleApplicationPrivate : public QObject {
-Q_OBJECT
 public:
-    enum ConnectionType : quint8 {
+    enum class ConnectionType : quint8
+    {
         InvalidConnection = 0,
         NewInstance = 1,
         SecondaryInstance = 2,
         Reconnect = 3
     };
-    enum ConnectionStage : quint8 {
-        StageHeader = 0,
-        StageBody = 1,
-        StageConnected = 2,
+
+    enum class ConnectionStage : quint8
+    {
+        Header = 0,
+        Body = 1,
+        Connected = 2,
     };
+
+    struct ConnectionInfo
+    {
+        explicit ConnectionInfo() = default;
+
+        qint64 messageLength = 0;
+        quint32 instanceId = 0;
+        ConnectionStage stage = ConnectionStage::Header;
+    };
+
     Q_DECLARE_PUBLIC(SingleApplication)
 
-    SingleApplicationPrivate( SingleApplication *q_ptr );
-     ~SingleApplicationPrivate();
+    explicit SingleApplicationPrivate(SingleApplication *parent);
+    ~SingleApplicationPrivate() override;
 
     QByteArray getUsername();
-    void genBlockServerName();
+    void generateBlockServerName();
     void initializeMemoryBlock();
     void startPrimary();
     void startSecondary();
-    void connectToPrimary(int msecs, ConnectionType connectionType );
+    void connectToPrimary(std::chrono::milliseconds timeout, ConnectionType connectionType);
     quint16 blockChecksum();
     qint64 primaryPid();
     QString primaryUser();
     void readInitMessageHeader(QLocalSocket *socket);
     void readInitMessageBody(QLocalSocket *socket);
 
-    SingleApplication *q_ptr;
-    QSharedMemory *memory;
-    QLocalSocket *socket;
-    QLocalServer *server;
-    quint32 instanceNumber;
+    SingleApplication * const q_ptr;
+    QSharedMemory *memory = nullptr;
+    QLocalSocket *socket = nullptr;
+    QLocalServer *server = nullptr;
+    quint32 instanceNumber = -1;
     QString blockServerName;
-    SingleApplication::Options options;
+    SingleApplication::Options options = {};
     QMap<QLocalSocket*, ConnectionInfo> connectionMap;
 
-public Q_SLOTS:
-    void slotConnectionEstablished();
-    void slotDataAvailable( QLocalSocket*, quint32 );
-    void slotClientConnectionClosed( QLocalSocket*, quint32 );
+    void onDataAvailable(QLocalSocket *socket, quint32 instanceId);
+    void onClientConnectionClosed(QLocalSocket *socket, quint32 instanceId);
+
+public slots:
+    void onConnectionEstablished();
 };
 
 #endif // SINGLEAPPLICATION_P_H

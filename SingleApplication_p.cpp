@@ -109,9 +109,9 @@ bool SingleApplicationPrivate::init(bool allowSecondary,
 #ifdef Q_OS_UNIX
     // By explicitly attaching it and then deleting it we make sure that the
     // memory is deleted even after the process has crashed on Unix.
-    memory = new QSharedMemory(blockServerName);
-    memory->attach();
-    delete memory;
+    m_memory = new QSharedMemory(m_blockServerName);
+    m_memory->attach();
+    delete m_memory;
 #endif
 
     // Guarantee thread safe behaviour with a shared memory block
@@ -371,8 +371,12 @@ void SingleApplicationPrivate::startPrimary()
     const QByteArray username = getUsername();
     const int usernameSize = qMin(username.size(), InstancesInfo::primaryUserSize - 1);
 
+#ifdef Q_OS_WIN
     strncpy_s(instanceInfo->m_primaryUser, InstancesInfo::primaryUserSize,
               username.data(), usernameSize);
+#else
+    strncpy(instanceInfo->m_primaryUser, username.data(), usernameSize);
+#endif
 
     instanceInfo->m_primaryUser[usernameSize] = '\0';
     instanceInfo->m_checksum = blockChecksum();
